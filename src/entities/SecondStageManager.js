@@ -1,4 +1,5 @@
 import { SecondStageObjective } from './SecondStageObjective.js';
+import { BULLET } from '../constants.js';
 
 export class SecondStageManager {
     constructor() {
@@ -10,6 +11,8 @@ export class SecondStageManager {
         // Add spawn animation progress tracking
         this.spawnProgress = 0;
         this.isSpawning = false;
+        this.flickerStartTime = 0;
+        this.isFlickering = false;
     }
 
     update(player, deltaTime) {
@@ -19,6 +22,17 @@ export class SecondStageManager {
                 objective.update(player, deltaTime);
             }
         });
+
+        // Update flicker effect if active
+        if (this.isFlickering) {
+            const flickerElapsed = Date.now() - this.flickerStartTime;
+            if (flickerElapsed >= 1000) { // 1 second flicker duration
+                this.isFlickering = false;
+                // After flicker ends, make the true objective vulnerable
+                const trueObjective = this.objectives[this.trueObjectiveIndex];
+                trueObjective.isVulnerable = true;
+            }
+        }
 
         // Handle spawning based on timer
         if (this.objectives.length < this.maxCopies) {
@@ -55,17 +69,41 @@ export class SecondStageManager {
         // If we've reached max copies, choose the true objective
         if (this.objectives.length === this.maxCopies) {
             this.trueObjectiveIndex = Math.floor(Math.random() * this.objectives.length);
-            this.objectives[this.trueObjectiveIndex].isTrue = true;
-            this.objectives[this.trueObjectiveIndex].isVulnerable = true;
+            // Note: isVulnerable is not set here anymore
         }
     }
 
     draw(ctx) {
         // Draw all active objectives
-        this.objectives.forEach(objective => {
-            if (objective.active) {
-                objective.draw(ctx);
+        this.objectives.forEach((objective, index) => {
+            if (!objective.active) return;
+
+            ctx.save();
+            ctx.translate(objective.x, objective.y);
+            ctx.rotate(objective.angle);
+
+            // Draw the triangle
+            ctx.beginPath();
+            const points = objective.getTrianglePoints();
+            ctx.moveTo(points[0].x, points[0].y);
+            ctx.lineTo(points[1].x, points[1].y);
+            ctx.lineTo(points[2].x, points[2].y);
+            ctx.closePath();
+
+            // Set fill style based on state
+            if (index === this.trueObjectiveIndex && this.isFlickering) {
+                // Flicker effect
+                const flickerTime = Date.now() - this.flickerStartTime;
+                ctx.fillStyle = flickerTime % 200 < 100 ? 'red' : 'white';
+            } else {
+                ctx.fillStyle = 'red';
             }
+            ctx.fill();
+
+            ctx.restore();
+
+            // Draw bullet pool
+            objective.bulletPool.draw(ctx);
         });
 
         // Draw spawn animation if in progress
@@ -95,8 +133,35 @@ export class SecondStageManager {
     }
 
     checkCollisions(bullet) {
-        for (const objective of this.objectives) {
-            if (objective.checkCollision(bullet)) {
+        for (let i = 0; i < this.objectives.length; i++) {
+            const objective = this.objectives[i];
+            if (!objective.active || !bullet.active) continue;
+
+            const dx = bullet.x - objective.x;
+            const dy = bullet.y - objective.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            
+            if (i === this.trueObjectiveIndex) {
+                if (!this.isFlickering && !objective.isVulnerable) {
+                    // First hit on true objective
+                    if (distance < objective.size + bullet.radius) {
+                        this.startFlicker();
+                        return true;
+                    }
+                } else if (objective.isVulnerable) {
+                    // Check hit zone collision first for vulnerable true objective
+                    if (distance < BULLET.PLAYER.SIZE + bullet.radius) {
+                        objective.hitCount++;
+                        if (objective.hitCount >= 2) {
+                            objective.active = false;
+                        }
+                        return true;
+                    }
+                }
+            }
+            
+            // Regular collision check comes last
+            if (distance < objective.size + bullet.radius) {
                 return true;
             }
         }
@@ -117,5 +182,10 @@ export class SecondStageManager {
         initialObjective.spawn(window.innerWidth, window.innerHeight);
         this.objectives = [initialObjective];
         this.spawnTimer = 0;
+    }
+
+    startFlicker() {
+        this.isFlickering = true;
+        this.flickerStartTime = Date.now();
     }
 } 
