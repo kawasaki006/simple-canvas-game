@@ -4,9 +4,8 @@ export class SecondStageManager {
     constructor() {
         this.objectives = [];
         this.maxCopies = 5;
-        this.spawnProgress = 0;
-        this.spawnStartTime = 0;
-        this.isSpawning = false;
+        this.spawnTimer = 0;
+        this.spawnInterval = 6000; // 6 seconds between spawns (4s cycle + 2s spawn)
         this.trueObjectiveIndex = -1;
     }
 
@@ -18,26 +17,17 @@ export class SecondStageManager {
             }
         });
 
-        // Handle spawning logic
-        if (this.isSpawning) {
-            const currentTime = Date.now();
-            const stateTime = currentTime - this.spawnStartTime;
-            this.spawnProgress = Math.min(1, stateTime / 2000); // 2 second spawn
-
-            if (this.spawnProgress >= 1) {
-                this.finalizeSpawn();
+        // Handle spawning based on timer
+        if (this.objectives.length < this.maxCopies) {
+            this.spawnTimer += deltaTime;
+            if (this.spawnTimer >= this.spawnInterval) {
+                this.spawnTimer = 0;
+                this.spawnNewCopy();
             }
         }
     }
 
-    startSpawning() {
-        this.isSpawning = true;
-        this.spawnStartTime = Date.now();
-        this.spawnProgress = 0;
-    }
-
-    finalizeSpawn() {
-        // Create new objective at center
+    spawnNewCopy() {
         const newObjective = new SecondStageObjective();
         newObjective.x = window.innerWidth / 2;
         newObjective.y = window.innerHeight / 2;
@@ -51,8 +41,6 @@ export class SecondStageManager {
             this.objectives[this.trueObjectiveIndex].isTrue = true;
             this.objectives[this.trueObjectiveIndex].isVulnerable = true;
         }
-
-        this.isSpawning = false;
     }
 
     draw(ctx) {
@@ -62,29 +50,6 @@ export class SecondStageManager {
                 objective.draw(ctx);
             }
         });
-
-        // Draw spawn animation if in progress
-        if (this.isSpawning) {
-            this.drawSpawnAnimation(ctx);
-        }
-    }
-
-    drawSpawnAnimation(ctx) {
-        ctx.save();
-        ctx.translate(window.innerWidth / 2, window.innerHeight / 2);
-        ctx.rotate(this.objectives[0].angle);
-        ctx.globalAlpha = this.spawnProgress * 0.5;
-        
-        // Draw shadow copy
-        ctx.beginPath();
-        const size = this.objectives[0].size;
-        ctx.moveTo(size, 0);
-        ctx.lineTo(size * Math.cos(2.0944), size * Math.sin(2.0944));
-        ctx.lineTo(size * Math.cos(4.1888), size * Math.sin(4.1888));
-        ctx.closePath();
-        ctx.fillStyle = 'rgba(255, 0, 0, 0.3)';
-        ctx.fill();
-        ctx.restore();
     }
 
     checkCollisions(bullet) {
@@ -109,5 +74,6 @@ export class SecondStageManager {
         const initialObjective = new SecondStageObjective();
         initialObjective.spawn(window.innerWidth, window.innerHeight);
         this.objectives = [initialObjective];
+        this.spawnTimer = 0;
     }
 } 
