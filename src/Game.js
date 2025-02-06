@@ -166,21 +166,18 @@ export class Game {
     }
 
     updateSecondStage(deltaTime) {
-        // Update manager instead of individual objective
-        this.secondStageManager.update(this.player, deltaTime);
+        // Check if manager signals game end
+        if (this.secondStageManager.update(this.player, deltaTime)) {
+            this.gameState = GameState.WIN;
+            return;
+        }
         
-        // Check bullet collisions
         this.bulletPool.bullets.forEach(bullet => {
             if (this.secondStageManager.checkCollisions(bullet)) {
                 bullet.active = false;
-                // Check if all objectives are inactive (win condition)
-                if (this.secondStageManager.objectives.every(obj => !obj.active)) {
-                    this.gameState = GameState.WIN;
-                }
             }
         });
 
-        // Check player collisions
         if (this.secondStageManager.checkPlayerCollision(this.player)) {
             this.gameState = GameState.LOSE;
             this.player.alive = false;

@@ -4,7 +4,8 @@ import { EnemyBulletPool } from './EnemyBulletPool.js';
 const State = {
     TARGETING: 'TARGETING',
     DASHING: 'DASHING',
-    RESTING: 'RESTING'
+    RESTING: 'RESTING',
+    STATIC: 'STATIC'
 };
 
 export class SecondStageObjective {
@@ -91,6 +92,9 @@ export class SecondStageObjective {
                 if (stateTime > 2000) { // 2 second rest
                     this.setState(State.TARGETING);
                 }
+                break;
+
+            case State.STATIC:
                 break;
         }
 

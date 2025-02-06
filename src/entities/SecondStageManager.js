@@ -13,10 +13,22 @@ export class SecondStageManager {
         this.isSpawning = false;
         this.flickerStartTime = 0;
         this.isFlickering = false;
+        // Add death sequence tracking
+        this.isDying = false;
+        this.deathStartTime = 0;
     }
 
     update(player, deltaTime) {
-        // Update all existing objectives
+        // If in death sequence, check for timing
+        if (this.isDying) {
+            const deathElapsed = Date.now() - this.deathStartTime;
+            if (deathElapsed >= 1000) { // 1 second delay before game end
+                return true; // Signal to game that it should transition to win state
+            }
+            return false;
+        }
+
+        // Regular update logic
         this.objectives.forEach(objective => {
             if (objective.active) {
                 objective.update(player, deltaTime);
@@ -26,16 +38,15 @@ export class SecondStageManager {
         // Update flicker effect if active
         if (this.isFlickering) {
             const flickerElapsed = Date.now() - this.flickerStartTime;
-            if (flickerElapsed >= 1000) { // 1 second flicker duration
+            if (flickerElapsed >= 1000) {
                 this.isFlickering = false;
-                // After flicker ends, make the true objective vulnerable
                 const trueObjective = this.objectives[this.trueObjectiveIndex];
                 trueObjective.isVulnerable = true;
             }
         }
 
         // Handle spawning based on timer
-        if (this.objectives.length < this.maxCopies) {
+        if (!this.isDying && this.objectives.length < this.maxCopies) {
             this.spawnTimer += deltaTime;
             
             // Start spawn animation at 2 seconds into the interval
@@ -56,6 +67,8 @@ export class SecondStageManager {
                 this.isSpawning = false;
             }
         }
+
+        return false; // Game continues
     }
 
     spawnNewCopy() {
@@ -143,17 +156,16 @@ export class SecondStageManager {
             
             if (i === this.trueObjectiveIndex) {
                 if (!this.isFlickering && !objective.isVulnerable) {
-                    // First hit on true objective
                     if (distance < objective.size + bullet.radius) {
                         this.startFlicker();
                         return true;
                     }
                 } else if (objective.isVulnerable) {
-                    // Check hit zone collision first for vulnerable true objective
-                    if (distance < BULLET.PLAYER.SIZE + bullet.radius) {
+                    // Increased hit zone size to objective.size (same as regular collision)
+                    if (distance < objective.size + bullet.radius) {
                         objective.hitCount++;
                         if (objective.hitCount >= 2) {
-                            objective.active = false;
+                            this.startDeathSequence();
                         }
                         return true;
                     }
@@ -187,5 +199,15 @@ export class SecondStageManager {
     startFlicker() {
         this.isFlickering = true;
         this.flickerStartTime = Date.now();
+    }
+
+    startDeathSequence() {
+        this.isDying = true;
+        this.deathStartTime = Date.now();
+        // Keep only the true objective
+        this.objectives = [this.objectives[this.trueObjectiveIndex]];
+        // Make it static
+        const trueObjective = this.objectives[0];
+        trueObjective.state = 'STATIC';
     }
 } 
