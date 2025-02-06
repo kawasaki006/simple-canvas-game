@@ -1,7 +1,7 @@
 import { Player } from './entities/Player.js';
 import { BulletPool } from './entities/BulletPool.js';
 import { FirstStageObjective } from './entities/FirstStageObjective.js';
-import { SecondStageObjective } from './entities/SecondStageObjective.js';
+import { SecondStageManager } from './entities/SecondStageManager.js';
 import { BULLET, OBJECTIVE, FRAME } from './constants.js';
 
 const GameState = {
@@ -21,15 +21,9 @@ export class Game {
         this.player = new Player(this.canvas.width, this.canvas.height);
         this.bulletPool = new BulletPool(BULLET.PLAYER.POOL_SIZE);
         
-        //this.firstStageObjective = new FirstStageObjective();
-        //this.firstStageObjective.spawn(this.canvas.width, this.canvas.height);
-        //this.objective = this.firstStageObjective;
-        //this.secondStageObjective = null;
-
-        // Initialize second stage directly instead of first stage
-        this.secondStageObjective = new SecondStageObjective();
-        this.secondStageObjective.spawn(this.canvas.width, this.canvas.height);
-        this.objective = this.secondStageObjective;
+        // Initialize second stage manager and call initialize immediately
+        this.secondStageManager = new SecondStageManager();
+        this.secondStageManager.initialize();
         this.firstStageObjective = null;
         
         this.keys = {};
@@ -38,7 +32,7 @@ export class Game {
         this.lastTime = 0;
         this.mouseDown = false;
 
-        //this.gameState = GameState.FIRST_STAGE;
+        // For testing, start in second stage
         this.gameState = GameState.SECOND_STAGE;
         this.stateTransitionTime = 0;
 
@@ -172,18 +166,22 @@ export class Game {
     }
 
     updateSecondStage(deltaTime) {
-        this.secondStageObjective.update(this.player, deltaTime);
+        // Update manager instead of individual objective
+        this.secondStageManager.update(this.player, deltaTime);
         
+        // Check bullet collisions
         this.bulletPool.bullets.forEach(bullet => {
-            if (this.secondStageObjective.checkCollision(bullet)) {
+            if (this.secondStageManager.checkCollisions(bullet)) {
                 bullet.active = false;
-                if (!this.secondStageObjective.active) {
+                // Check if all objectives are inactive (win condition)
+                if (this.secondStageManager.objectives.every(obj => !obj.active)) {
                     this.gameState = GameState.WIN;
                 }
             }
         });
 
-        if (this.secondStageObjective.checkPlayerCollision(this.player)) {
+        // Check player collisions
+        if (this.secondStageManager.checkPlayerCollision(this.player)) {
             this.gameState = GameState.LOSE;
             this.player.alive = false;
         }
@@ -192,13 +190,12 @@ export class Game {
     startTransition() {
         this.gameState = GameState.TRANSITIONING;
         this.stateTransitionTime = Date.now();
-        this.secondStageObjective = new SecondStageObjective();
-        this.secondStageObjective.spawn(this.canvas.width, this.canvas.height);
+        this.secondStageManager = new SecondStageManager();
+        this.secondStageManager.initialize();
     }
 
     startSecondStage() {
         this.gameState = GameState.SECOND_STAGE;
-        this.objective = this.secondStageObjective;
         this.firstStageObjective = null;
     }
 
@@ -208,21 +205,27 @@ export class Game {
         this.bulletPool.draw(this.ctx);
         this.player.draw(this.ctx);
 
-        if (this.gameState === GameState.FIRST_STAGE) {
-            this.firstStageObjective.draw(this.ctx);
-            this.firstStageObjective.bulletPool.draw(this.ctx);
-        } else if (this.gameState === GameState.TRANSITIONING) {
-            const elapsed = Date.now() - this.stateTransitionTime;
-            const progress = elapsed / 1000;
-            
-            this.ctx.save();
-            this.ctx.globalAlpha = 1 - progress;
-            this.firstStageObjective.draw(this.ctx);
-            this.ctx.globalAlpha = progress;
-            this.secondStageObjective.draw(this.ctx);
-            this.ctx.restore();
-        } else {
-            this.secondStageObjective.draw(this.ctx);
+        switch (this.gameState) {
+            case GameState.FIRST_STAGE:
+                this.firstStageObjective.draw(this.ctx);
+                this.firstStageObjective.bulletPool.draw(this.ctx);
+                break;
+                
+            case GameState.TRANSITIONING:
+                const elapsed = Date.now() - this.stateTransitionTime;
+                const progress = elapsed / 1000;
+                
+                this.ctx.save();
+                this.ctx.globalAlpha = 1 - progress;
+                this.firstStageObjective.draw(this.ctx);
+                this.ctx.globalAlpha = progress;
+                this.secondStageManager.draw(this.ctx);
+                this.ctx.restore();
+                break;
+                
+            case GameState.SECOND_STAGE:
+                this.secondStageManager.draw(this.ctx);
+                break;
         }
 
         if (this.gameState === GameState.WIN || this.gameState === GameState.LOSE) {
@@ -255,13 +258,13 @@ export class Game {
     }
 
     restart() {
-        this.gameState = GameState.FIRST_STAGE;
-        this.firstStageObjective = new FirstStageObjective();
-        this.secondStageObjective = null;
-        this.objective = this.firstStageObjective;
+        // For testing purposes, start directly in second stage
+        this.gameState = GameState.SECOND_STAGE;
+        this.secondStageManager = new SecondStageManager();
+        this.secondStageManager.initialize();
+        this.firstStageObjective = null;
         this.player.alive = true;
         this.bulletPool.bullets.forEach(bullet => bullet.active = false);
-        this.firstStageObjective.spawn(this.canvas.width, this.canvas.height);
     }
 
     gameLoop(timestamp) {
