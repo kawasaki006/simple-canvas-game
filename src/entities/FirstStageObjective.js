@@ -1,7 +1,7 @@
 import { EnemyBulletPool } from './EnemyBulletPool.js';
 import { OBJECTIVE, BULLET } from '../constants.js';
 
-export class Objective {
+export class FirstStageObjective {
     constructor() {
         this.active = false;
         this.x = 0;

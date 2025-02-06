@@ -30,12 +30,12 @@ export const OBJECTIVE = {
     ROTATION_SPEED: 0.02,
     HIT_ZONE: {
         RADIUS: 5,
-        VISIBLE_DURATION: 5000,  // ms
-        REQUIRED_PINK_HITS: 3,
+        VISIBLE_DURATION: 10000,  // ms
+        REQUIRED_PINK_HITS: 1,
     },
     SHOOTING: {
         INTERVAL: 1000,  // ms
-        PINK_BULLET_WAVE: 3,  // Every Nth wave has pink bullet
+        PINK_BULLET_WAVE: 1,  // Every Nth wave has pink bullet
         CORNER_CUT_RATIO: 0.5,  // How much of corner to cut off when destroyed
     },
     SPAWN: {
@@ -44,6 +44,16 @@ export const OBJECTIVE = {
     ANGLES: {
         SECOND_POINT: 2.0944,  // 120 degrees in radians
         THIRD_POINT: 4.1888,   // 240 degrees in radians
+    },
+    SECOND_STAGE: {
+        SIZE_RATIO: 0.7,
+        DASH_SPEED: 1000,
+        ROTATION_DECAY: 0.95,
+        MAX_COPIES: 5,
+        TARGETING_DURATION: 1000,
+        RESTING_DURATION: 2000,
+        SPAWN_DURATION: 2000,
+        DEATH_DURATION: 2000,
     }
 };
 

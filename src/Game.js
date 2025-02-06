@@ -1,7 +1,16 @@
 import { Player } from './entities/Player.js';
 import { BulletPool } from './entities/BulletPool.js';
-import { Objective } from './entities/Objective.js';
+import { FirstStageObjective } from './entities/FirstStageObjective.js';
+import { SecondStageObjective } from './entities/SecondStageObjective.js';
 import { BULLET, OBJECTIVE, FRAME } from './constants.js';
+
+const GameState = {
+    FIRST_STAGE: 'FIRST_STAGE',
+    TRANSITIONING: 'TRANSITIONING',
+    SECOND_STAGE: 'SECOND_STAGE',
+    WIN: 'WIN',
+    LOSE: 'LOSE'
+};
 
 export class Game {
     constructor() {
@@ -11,15 +20,29 @@ export class Game {
 
         this.player = new Player(this.canvas.width, this.canvas.height);
         this.bulletPool = new BulletPool(BULLET.PLAYER.POOL_SIZE);
-        this.objective = new Objective();
+        
+        //this.firstStageObjective = new FirstStageObjective();
+        //this.firstStageObjective.spawn(this.canvas.width, this.canvas.height);
+        //this.objective = this.firstStageObjective;
+        //this.secondStageObjective = null;
+
+        // Initialize second stage directly instead of first stage
+        this.secondStageObjective = new SecondStageObjective();
+        this.secondStageObjective.spawn(this.canvas.width, this.canvas.height);
+        this.objective = this.secondStageObjective;
+        this.firstStageObjective = null;
         
         this.keys = {};
         this.mouseX = 0;
         this.mouseY = 0;
         this.lastTime = 0;
+        this.mouseDown = false;
+
+        //this.gameState = GameState.FIRST_STAGE;
+        this.gameState = GameState.SECOND_STAGE;
+        this.stateTransitionTime = 0;
 
         this.setupEventListeners();
-        this.objective.spawn(this.canvas.width, this.canvas.height);
     }
 
     setupEventListeners() {
@@ -36,12 +59,20 @@ export class Game {
         // shoot bullet
         window.addEventListener('mousedown', e => {
             if (e.button === 0) {
-                this.bulletPool.shoot(this.player, Date.now());
+                this.mouseDown = true;
+            }
+        });
+
+        window.addEventListener('mouseup', e => {
+            if (e.button === 0) {
+                this.mouseDown = false;
             }
         });
 
         // resize canvas
         window.addEventListener('resize', () => this.resizeCanvas());
+
+        this.canvas.addEventListener('click', () => this.handleClick());
     }
 
     resizeCanvas() {
@@ -52,69 +83,185 @@ export class Game {
     update(deltaTime) {
         if (!this.player.alive) return;
 
-        this.player.update(this.keys, this.mouseX, this.mouseY, deltaTime, 
-                          this.canvas.width, this.canvas.height);
+        this.player.update(
+            this.keys,
+            this.mouseX,
+            this.mouseY,
+            deltaTime,
+            this.canvas.width,
+            this.canvas.height
+        );
+
+        if (this.mouseDown) {
+            this.bulletPool.shoot(this.player, Date.now());
+        }
+
         this.bulletPool.update(this.canvas.width, this.canvas.height);
-        this.objective.update();
+        
+        switch (this.gameState) {
+            case GameState.FIRST_STAGE:
+                this.updateFirstStage(deltaTime);
+                break;
+                
+            case GameState.TRANSITIONING:
+                this.updateTransition(deltaTime);
+                break;
+                
+            case GameState.SECOND_STAGE:
+                this.updateSecondStage(deltaTime);
+                break;
+        }
+    }
 
-        // Check player bullets hitting enemy bullets
-        this.bulletPool.bullets.forEach(playerBullet => {
-            if (!playerBullet.active) return;
-            
-            this.objective.bulletPool.bullets.forEach(enemyBullet => {
-                if (!enemyBullet.active || !enemyBullet.isPink) return;
+    updateFirstStage(deltaTime) {
+        this.firstStageObjective.update(deltaTime);
+
+        if (this.gameState === GameState.FIRST_STAGE) {
+           // Check player bullets hitting enemy bullets
+            this.bulletPool.bullets.forEach(playerBullet => {
+                if (!playerBullet.active) return;
                 
-                const dx = playerBullet.x - enemyBullet.x;
-                const dy = playerBullet.y - enemyBullet.y;
-                const distance = Math.sqrt(dx * dx + dy * dy);
-                
-                if (distance <= playerBullet.radius + enemyBullet.radius) {
-                    enemyBullet.active = false;
-                    playerBullet.active = false;
+                this.firstStageObjective.bulletPool.bullets.forEach(enemyBullet => {
+                    if (!enemyBullet.active || !enemyBullet.isPink) return;
                     
-                    this.objective.destroyedPinkBullets++;
-                    if (this.objective.destroyedPinkBullets >= OBJECTIVE.HIT_ZONE.REQUIRED_PINK_HITS) {
-                        this.objective.hitZonesVisible = true;
-                        this.objective.hitZonesVisibleStartTime = Date.now();
-                        this.objective.destroyedPinkBullets = 0;
+                    const dx = playerBullet.x - enemyBullet.x;
+                    const dy = playerBullet.y - enemyBullet.y;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+                    
+                    if (distance <= playerBullet.radius + enemyBullet.radius) {
+                        enemyBullet.active = false;
+                        playerBullet.active = false;
+                        
+                        this.firstStageObjective.destroyedPinkBullets++;
+                        if (this.firstStageObjective.destroyedPinkBullets >= OBJECTIVE.HIT_ZONE.REQUIRED_PINK_HITS) {
+                            this.firstStageObjective.hitZonesVisible = true;
+                            this.firstStageObjective.hitZonesVisibleStartTime = Date.now();
+                            this.firstStageObjective.destroyedPinkBullets = 0;
+                        }
                     }
-                }
-            });
-        });
-
-        // Check player bullets hitting objective
+                });
+            }); 
+        }
+        
         this.bulletPool.bullets.forEach(bullet => {
-            if (this.objective.checkCollision(bullet)) {
-                this.objective.active = false;
+            if (this.firstStageObjective.checkCollision(bullet)) {
                 bullet.active = false;
+                if (this.firstStageObjective.destroyedEdges.every(edge => edge)) {
+                    this.startTransition();
+                }
             }
         });
 
-        // Check enemy bullets hitting player
-        this.objective.bulletPool.bullets.forEach(bullet => {
+        this.firstStageObjective.bulletPool.bullets.forEach(bullet => {
             if (this.player.checkCollision(bullet)) {
+                //this.gameState = GameState.LOSE;
                 //this.player.alive = false;
                 //bullet.active = false;
             }
         });
+    }
 
-        if (!this.objective.active) {
-            this.objective.spawn(this.canvas.width, this.canvas.height);
+    updateTransition(deltaTime) {
+        const transitionDuration = 1000;
+        const currentTime = Date.now();
+        const elapsed = currentTime - this.stateTransitionTime;
+        
+        if (elapsed >= transitionDuration) {
+            this.startSecondStage();
         }
+    }
+
+    updateSecondStage(deltaTime) {
+        this.secondStageObjective.update(this.player, deltaTime);
+        
+        this.bulletPool.bullets.forEach(bullet => {
+            if (this.secondStageObjective.checkCollision(bullet)) {
+                bullet.active = false;
+                if (!this.secondStageObjective.active) {
+                    this.gameState = GameState.WIN;
+                }
+            }
+        });
+
+        if (this.secondStageObjective.checkPlayerCollision(this.player)) {
+            this.gameState = GameState.LOSE;
+            this.player.alive = false;
+        }
+    }
+
+    startTransition() {
+        this.gameState = GameState.TRANSITIONING;
+        this.stateTransitionTime = Date.now();
+        this.secondStageObjective = new SecondStageObjective();
+        this.secondStageObjective.spawn(this.canvas.width, this.canvas.height);
+    }
+
+    startSecondStage() {
+        this.gameState = GameState.SECOND_STAGE;
+        this.objective = this.secondStageObjective;
+        this.firstStageObjective = null;
     }
 
     draw() {
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
         
-        // draw player and bullets
-        if (this.player.alive) {
-            this.player.draw(this.ctx);
-        }
         this.bulletPool.draw(this.ctx);
+        this.player.draw(this.ctx);
 
-        // draw objective and enemy bullets
-        this.objective.draw(this.ctx);
-        this.objective.bulletPool.draw(this.ctx);
+        if (this.gameState === GameState.FIRST_STAGE) {
+            this.firstStageObjective.draw(this.ctx);
+            this.firstStageObjective.bulletPool.draw(this.ctx);
+        } else if (this.gameState === GameState.TRANSITIONING) {
+            const elapsed = Date.now() - this.stateTransitionTime;
+            const progress = elapsed / 1000;
+            
+            this.ctx.save();
+            this.ctx.globalAlpha = 1 - progress;
+            this.firstStageObjective.draw(this.ctx);
+            this.ctx.globalAlpha = progress;
+            this.secondStageObjective.draw(this.ctx);
+            this.ctx.restore();
+        } else {
+            this.secondStageObjective.draw(this.ctx);
+        }
+
+        if (this.gameState === GameState.WIN || this.gameState === GameState.LOSE) {
+            this.drawGameEnd();
+        }
+    }
+
+    drawGameEnd() {
+        this.ctx.save();
+        this.ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+        
+        this.ctx.fillStyle = 'white';
+        this.ctx.font = '48px Arial';
+        this.ctx.textAlign = 'center';
+        this.ctx.textBaseline = 'middle';
+        
+        const message = this.gameState === GameState.WIN ? 'You Win!' : 'Game Over';
+        this.ctx.fillText(message, this.canvas.width / 2, this.canvas.height / 2);
+        
+        this.ctx.font = '24px Arial';
+        this.ctx.fillText('Click to restart', this.canvas.width / 2, this.canvas.height / 2 + 50);
+        this.ctx.restore();
+    }
+
+    handleClick() {
+        if (this.gameState === GameState.WIN || this.gameState === GameState.LOSE) {
+            this.restart();
+        }
+    }
+
+    restart() {
+        this.gameState = GameState.FIRST_STAGE;
+        this.firstStageObjective = new FirstStageObjective();
+        this.secondStageObjective = null;
+        this.objective = this.firstStageObjective;
+        this.player.alive = true;
+        this.bulletPool.bullets.forEach(bullet => bullet.active = false);
+        this.firstStageObjective.spawn(this.canvas.width, this.canvas.height);
     }
 
     gameLoop(timestamp) {
