@@ -5,8 +5,11 @@ export class SecondStageManager {
         this.objectives = [];
         this.maxCopies = 5;
         this.spawnTimer = 0;
-        this.spawnInterval = 6000; // 6 seconds between spawns (4s cycle + 2s spawn)
+        this.spawnInterval = 3000; // 3 seconds between spawns (2s cycle + 1s spawn)
         this.trueObjectiveIndex = -1;
+        // Add spawn animation progress tracking
+        this.spawnProgress = 0;
+        this.isSpawning = false;
     }
 
     update(player, deltaTime) {
@@ -20,9 +23,23 @@ export class SecondStageManager {
         // Handle spawning based on timer
         if (this.objectives.length < this.maxCopies) {
             this.spawnTimer += deltaTime;
+            
+            // Start spawn animation at 2 seconds into the interval
+            if (this.spawnTimer >= 2000 && !this.isSpawning) {
+                this.isSpawning = true;
+            }
+
+            // Update spawn animation progress
+            if (this.isSpawning) {
+                this.spawnProgress = (this.spawnTimer - 2000) / 1000; // 1 second animation
+            }
+
+            // Spawn new copy at the end of the interval
             if (this.spawnTimer >= this.spawnInterval) {
-                this.spawnTimer = 0;
                 this.spawnNewCopy();
+                this.spawnTimer = 0;
+                this.spawnProgress = 0;
+                this.isSpawning = false;
             }
         }
     }
@@ -50,6 +67,31 @@ export class SecondStageManager {
                 objective.draw(ctx);
             }
         });
+
+        // Draw spawn animation if in progress
+        if (this.isSpawning) {
+            this.drawSpawnAnimation(ctx);
+        }
+    }
+
+    drawSpawnAnimation(ctx) {
+        ctx.save();
+        ctx.translate(window.innerWidth / 2, window.innerHeight / 2);
+        ctx.rotate(this.objectives[0].angle);
+        
+        // Gradually increase opacity as the spawn progresses
+        ctx.globalAlpha = Math.min(this.spawnProgress, 1);
+        
+        // Draw shadow copy
+        ctx.beginPath();
+        const size = this.objectives[0].size;
+        ctx.moveTo(size, 0);
+        ctx.lineTo(size * Math.cos(2.0944), size * Math.sin(2.0944));
+        ctx.lineTo(size * Math.cos(4.1888), size * Math.sin(4.1888));
+        ctx.closePath();
+        ctx.fillStyle = 'rgba(255, 0, 0, 0.3)';
+        ctx.fill();
+        ctx.restore();
     }
 
     checkCollisions(bullet) {
