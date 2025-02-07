@@ -21,6 +21,10 @@ export class FirstStageObjective {
         this.hitZonesVisibleDuration = OBJECTIVE.HIT_ZONE.VISIBLE_DURATION; // 5 seconds
         this.destroyedEdges = [false, false, false];
         this.originalSize = OBJECTIVE.SIZE; // original size of the objective
+        this.isStopping = false;
+        this.stopStartTime = 0;
+        this.stopDuration = 1000; // 1 second to stop
+        this.initialRotationSpeed = OBJECTIVE.ROTATION_SPEED;
     }
 
     // get the points of the hit zone
@@ -45,10 +49,9 @@ export class FirstStageObjective {
     }
 
     spawn(canvasWidth, canvasHeight) {
-        // spawn in the center of the screen
         this.x = canvasWidth / 2;
         this.y = canvasHeight / 2;
-        this.angle = Math.random() * Math.PI * 2;
+        this.angle = 0;
         this.active = true;
     }
 
@@ -99,9 +102,8 @@ export class FirstStageObjective {
             
             if (this.destroyedEdges[i]) {
                 // If this corner is destroyed, create cut-off points
-                const cutoffRatio = OBJECTIVE.SHOOTING.CORNER_CUT_RATIO; // How much of the corner to cut off
+                const cutoffRatio = OBJECTIVE.SHOOTING.CORNER_CUT_RATIO;
                 
-                // Calculate cut points on both adjacent edges
                 const cutPoint1 = {
                     x: currentPoint.x + (prevPoint.x - currentPoint.x) * cutoffRatio,
                     y: currentPoint.y + (prevPoint.y - currentPoint.y) * cutoffRatio
@@ -130,14 +132,14 @@ export class FirstStageObjective {
             }
         }
         ctx.closePath();
-        ctx.fillStyle = 'green';
+        ctx.fillStyle = OBJECTIVE.COLOR;
         ctx.fill();
         ctx.restore();
 
         // Draw visible hit zones
         if (this.hitZonesVisible) {
             const hitZones = this.getHitZonePositions();
-            ctx.fillStyle = 'red';
+            ctx.fillStyle = 'red';  // Keep hit zones red for visibility
             hitZones.forEach((zone, index) => {
                 if (!this.destroyedEdges[index]) {
                     ctx.beginPath();
@@ -155,6 +157,17 @@ export class FirstStageObjective {
         if (this.hitZonesVisible) {
             if (Date.now() - this.hitZonesVisibleStartTime > this.hitZonesVisibleDuration) {
                 this.hitZonesVisible = false;
+            }
+        }
+
+        // Gradual stopping logic
+        if (this.isStopping) {
+            const stopProgress = (Date.now() - this.stopStartTime) / this.stopDuration;
+            if (stopProgress < 1) {
+                // Smoothly reduce rotation speed
+                this.rotationSpeed = this.initialRotationSpeed * (1 - stopProgress);
+            } else {
+                this.rotationSpeed = 0;
             }
         }
 
@@ -197,5 +210,11 @@ export class FirstStageObjective {
         }
 
         this.bulletPool.update(window.innerWidth, window.innerHeight);
+    }
+
+    startStopping() {
+        this.isStopping = true;
+        this.stopStartTime = Date.now();
+        this.initialRotationSpeed = this.rotationSpeed;
     }
 } 

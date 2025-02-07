@@ -1,4 +1,4 @@
-import { OBJECTIVE, BULLET } from '../constants.js';
+import { OBJECTIVE, BULLET, SECOND_STAGE } from '../constants.js';
 import { EnemyBulletPool } from './EnemyBulletPool.js';
 
 const State = {
@@ -13,7 +13,7 @@ export class SecondStageObjective {
         // Basic properties
         this.x = 0;
         this.y = 0;
-        this.size = OBJECTIVE.SIZE * 0.7;
+        this.size = OBJECTIVE.SIZE * 0.5;
         this.angle = 0;
         this.active = true;
         this.state = State.TARGETING;
@@ -23,7 +23,7 @@ export class SecondStageObjective {
         this.stateStartTime = Date.now();
         
         // Movement properties
-        this.dashSpeed = 300; // pixels per second
+        this.dashSpeed = SECOND_STAGE.DASH_SPEED; // pixels per second
         this.dashTarget = { x: 0, y: 0 };
         this.hitBoundary = false;
 
@@ -31,6 +31,15 @@ export class SecondStageObjective {
         this.isTrue = false;
         this.isVulnerable = false;
         this.hitCount = 0;
+    }
+
+    spawn(canvasWidth, canvasHeight, initialAngle = 0) {
+        this.x = canvasWidth / 2;
+        this.y = canvasHeight / 2;
+        this.angle = initialAngle;
+        this.active = true;
+        this.state = State.TARGETING;
+        this.stateStartTime = Date.now();
     }
 
     update(player, deltaTime) {
@@ -41,7 +50,7 @@ export class SecondStageObjective {
 
         switch (this.state) {
             case State.TARGETING:
-                if (stateTime > 1000) { // 1 second targeting phase
+                if (stateTime > SECOND_STAGE.TARGETING_DURATION) { // 1 second targeting phase
                     this.prepareDash(player);
                     this.setState(State.DASHING);
                 } else {
@@ -89,7 +98,7 @@ export class SecondStageObjective {
                 break;
 
             case State.RESTING:
-                if (stateTime > 2000) { // 2 second rest
+                if (stateTime > SECOND_STAGE.RESTING_DURATION) { // 2 second rest
                     this.setState(State.TARGETING);
                 }
                 break;
@@ -155,15 +164,6 @@ export class SecondStageObjective {
                 y: this.size * Math.sin(4.1888) 
             }
         ];
-    }
-
-    spawn(canvasWidth, canvasHeight) {
-        this.x = canvasWidth / 2;
-        this.y = canvasHeight / 2;
-        this.angle = 0;
-        this.active = true;
-        this.state = State.TARGETING;
-        this.stateStartTime = Date.now();
     }
 
     checkCollision(bullet) {

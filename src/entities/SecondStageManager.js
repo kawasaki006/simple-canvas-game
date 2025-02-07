@@ -1,12 +1,12 @@
 import { SecondStageObjective } from './SecondStageObjective.js';
-import { BULLET } from '../constants.js';
+import { BULLET, SECOND_STAGE, OBJECTIVE } from '../constants.js';
 
 export class SecondStageManager {
     constructor() {
         this.objectives = [];
-        this.maxCopies = 5;
+        this.maxCopies = SECOND_STAGE.MAX_COPIES;
         this.spawnTimer = 0;
-        this.spawnInterval = 3000; // 3 seconds between spawns (2s cycle + 1s spawn)
+        this.spawnInterval = SECOND_STAGE.SPAWN_INTERVAL;
         this.trueObjectiveIndex = -1;
         // Add spawn animation progress tracking
         this.spawnProgress = 0;
@@ -22,7 +22,7 @@ export class SecondStageManager {
         // If in death sequence, check for timing
         if (this.isDying) {
             const deathElapsed = Date.now() - this.deathStartTime;
-            if (deathElapsed >= 1000) { // 1 second delay before game end
+            if (deathElapsed >= SECOND_STAGE.DEATH_DELAY) {
                 return true; // Signal to game that it should transition to win state
             }
             return false;
@@ -38,7 +38,7 @@ export class SecondStageManager {
         // Update flicker effect if active
         if (this.isFlickering) {
             const flickerElapsed = Date.now() - this.flickerStartTime;
-            if (flickerElapsed >= 1000) {
+            if (flickerElapsed >= SECOND_STAGE.FLICKER_DURATION) {
                 this.isFlickering = false;
                 const trueObjective = this.objectives[this.trueObjectiveIndex];
                 trueObjective.isVulnerable = true;
@@ -50,13 +50,14 @@ export class SecondStageManager {
             this.spawnTimer += deltaTime;
             
             // Start spawn animation at 2 seconds into the interval
-            if (this.spawnTimer >= 2000 && !this.isSpawning) {
+            if (this.spawnTimer >= SECOND_STAGE.SPAWN_ANIMATION_START && !this.isSpawning) {
                 this.isSpawning = true;
             }
 
             // Update spawn animation progress
             if (this.isSpawning) {
-                this.spawnProgress = (this.spawnTimer - 2000) / 1000; // 1 second animation
+                this.spawnProgress = (this.spawnTimer - SECOND_STAGE.SPAWN_ANIMATION_START) 
+                    / SECOND_STAGE.SPAWN_ANIMATION_DURATION;
             }
 
             // Spawn new copy at the end of the interval
@@ -73,16 +74,12 @@ export class SecondStageManager {
 
     spawnNewCopy() {
         const newObjective = new SecondStageObjective();
-        newObjective.x = window.innerWidth / 2;
-        newObjective.y = window.innerHeight / 2;
-        newObjective.angle = this.objectives[0].angle;
-        newObjective.active = true;
+        newObjective.spawn(window.innerWidth, window.innerHeight, this.objectives[0].angle);
         this.objectives.push(newObjective);
 
-        // If we've reached max copies, choose the true objective
         if (this.objectives.length === this.maxCopies) {
             this.trueObjectiveIndex = Math.floor(Math.random() * this.objectives.length);
-            // Note: isVulnerable is not set here anymore
+            this.objectives[this.trueObjectiveIndex].isTrue = true;
         }
     }
 
@@ -107,9 +104,9 @@ export class SecondStageManager {
             if (index === this.trueObjectiveIndex && this.isFlickering) {
                 // Flicker effect
                 const flickerTime = Date.now() - this.flickerStartTime;
-                ctx.fillStyle = flickerTime % 200 < 100 ? 'red' : 'white';
+                ctx.fillStyle = flickerTime % 200 < 100 ? OBJECTIVE.COLOR : 'white';
             } else {
-                ctx.fillStyle = 'red';
+                ctx.fillStyle = OBJECTIVE.COLOR;
             }
             ctx.fill();
 
@@ -129,8 +126,6 @@ export class SecondStageManager {
         ctx.save();
         ctx.translate(window.innerWidth / 2, window.innerHeight / 2);
         ctx.rotate(this.objectives[0].angle);
-        
-        // Gradually increase opacity as the spawn progresses
         ctx.globalAlpha = Math.min(this.spawnProgress, 1);
         
         // Draw shadow copy
@@ -140,7 +135,7 @@ export class SecondStageManager {
         ctx.lineTo(size * Math.cos(2.0944), size * Math.sin(2.0944));
         ctx.lineTo(size * Math.cos(4.1888), size * Math.sin(4.1888));
         ctx.closePath();
-        ctx.fillStyle = 'rgba(255, 0, 0, 0.3)';
+        ctx.fillStyle = `rgba(${OBJECTIVE.COLOR_RGB}, 0.3)`;
         ctx.fill();
         ctx.restore();
     }
@@ -164,7 +159,7 @@ export class SecondStageManager {
                     // Increased hit zone size to objective.size (same as regular collision)
                     if (distance < objective.size + bullet.radius) {
                         objective.hitCount++;
-                        if (objective.hitCount >= 2) {
+                        if (objective.hitCount >= SECOND_STAGE.HITS_TO_KILL) {
                             this.startDeathSequence();
                         }
                         return true;
@@ -189,9 +184,11 @@ export class SecondStageManager {
         return false;
     }
 
-    initialize() {
+    initialize(initialAngle = 0) {
+        console.log('SecondStageManager initialize with angle:', initialAngle);
         const initialObjective = new SecondStageObjective();
-        initialObjective.spawn(window.innerWidth, window.innerHeight);
+        initialObjective.spawn(window.innerWidth, window.innerHeight, initialAngle);
+        console.log('Initial objective angle after spawn:', initialObjective.angle);
         this.objectives = [initialObjective];
         this.spawnTimer = 0;
     }

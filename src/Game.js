@@ -21,10 +21,11 @@ export class Game {
         this.player = new Player(this.canvas.width, this.canvas.height);
         this.bulletPool = new BulletPool(BULLET.PLAYER.POOL_SIZE);
         
-        // Initialize second stage manager and call initialize immediately
-        this.secondStageManager = new SecondStageManager();
-        this.secondStageManager.initialize();
-        this.firstStageObjective = null;
+        // Initialize both stage managers
+        this.secondStageManager = null;
+        this.firstStageObjective = new FirstStageObjective();
+        
+        this.firstStageObjective.spawn(this.canvas.width, this.canvas.height);
         
         this.keys = {};
         this.mouseX = 0;
@@ -32,8 +33,7 @@ export class Game {
         this.lastTime = 0;
         this.mouseDown = false;
 
-        // For testing, start in second stage
-        this.gameState = GameState.SECOND_STAGE;
+        this.gameState = GameState.FIRST_STAGE;
         this.stateTransitionTime = 0;
 
         this.setupEventListeners();
@@ -141,7 +141,8 @@ export class Game {
             if (this.firstStageObjective.checkCollision(bullet)) {
                 bullet.active = false;
                 if (this.firstStageObjective.destroyedEdges.every(edge => edge)) {
-                    this.startTransition();
+                    this.firstStageObjective.startStopping();
+                    setTimeout(() => this.startTransition(), 1000); // Start transition after stopping
                 }
             }
         });
@@ -187,8 +188,12 @@ export class Game {
     startTransition() {
         this.gameState = GameState.TRANSITIONING;
         this.stateTransitionTime = Date.now();
+        
+        // Debug log for first stage angle
+        const finalAngle = this.firstStageObjective.angle;
+        
         this.secondStageManager = new SecondStageManager();
-        this.secondStageManager.initialize();
+        this.secondStageManager.initialize(finalAngle);
     }
 
     startSecondStage() {
