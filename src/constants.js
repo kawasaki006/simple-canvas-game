@@ -31,11 +31,11 @@ export const OBJECTIVE = {
     HIT_ZONE: {
         RADIUS: 5,
         VISIBLE_DURATION: 10000,  // ms
-        REQUIRED_PINK_HITS: 1,
+        REQUIRED_PINK_HITS: 3,
     },
     SHOOTING: {
         INTERVAL: 1000,  // ms
-        PINK_BULLET_WAVE: 1,  // Every Nth wave has pink bullet
+        PINK_BULLET_WAVE: 3,  // Every Nth wave has pink bullet
         CORNER_CUT_RATIO: 0.5,  // How much of corner to cut off when destroyed
     },
     SPAWN: {

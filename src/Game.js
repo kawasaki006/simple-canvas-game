@@ -22,11 +22,11 @@ export class Game {
         this.bulletPool = new BulletPool(BULLET.PLAYER.POOL_SIZE);
         
         // Initialize both stage managers
-        this.secondStageManager = new SecondStageManager();
+        //this.secondStageManager = new SecondStageManager();
         this.firstStageObjective = new FirstStageObjective();
         
         this.firstStageObjective.spawn(this.canvas.width, this.canvas.height);
-        this.secondStageManager.initialize();
+        //this.secondStageManager.initialize();
 
         this.keys = {};
         this.mouseX = 0;
@@ -34,7 +34,7 @@ export class Game {
         this.lastTime = 0;
         this.mouseDown = false;
 
-        this.gameState = GameState.SECOND_STAGE;
+        this.gameState = GameState.FIRST_STAGE;
         this.stateTransitionTime = 0;
 
         this.setupEventListeners();
@@ -150,9 +150,9 @@ export class Game {
 
         this.firstStageObjective.bulletPool.bullets.forEach(bullet => {
             if (this.player.checkCollision(bullet)) {
-                //this.gameState = GameState.LOSE;
-                //this.player.alive = false;
-                //bullet.active = false;
+                this.gameState = GameState.LOSE;
+                this.player.alive = false;
+                bullet.active = false;
             }
         });
     }
