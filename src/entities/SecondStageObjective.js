@@ -25,6 +25,7 @@ export class SecondStageObjective {
         // Movement properties
         this.dashSpeed = SECOND_STAGE.DASH_SPEED; // pixels per second
         this.dashTarget = { x: 0, y: 0 };
+        this.previousTarget = null;
         this.hitBoundary = false;
 
         // Vulnerability properties (managed by manager)
@@ -99,6 +100,7 @@ export class SecondStageObjective {
 
             case State.RESTING:
                 if (stateTime > SECOND_STAGE.RESTING_DURATION) { // 2 second rest
+                    this.previousTarget = { x: player.x, y: player.y };
                     this.setState(State.TARGETING);
                 }
                 break;
@@ -116,7 +118,24 @@ export class SecondStageObjective {
     }
 
     prepareDash(player) {
-        this.dashTarget = { x: player.x, y: player.y };
+        let predictedLocation = { x: player.x, y: player.y }
+        if (this.previousTarget !== null) {
+            const lastVelocity = { x: player.x - this.previousTarget.x, y: player.y - this.previousTarget.y };
+            predictedLocation = { x: player.x + lastVelocity.x, y: player.y + lastVelocity.y };
+        }
+
+        const distance = Math.sqrt((this.x - predictedLocation.x) ** 2 + (this.y - predictedLocation.y) ** 2);
+        const minInertia = 0.2;
+        const maxInertia = 0.8;
+        const maxDistance = (window.innerWidth + window.innerHeight) * 0.5;
+
+        const t = Math.max(0, Math.min(1, (maxDistance - distance) / maxDistance));
+        const inertiaFactor = minInertia + (maxInertia - minInertia) * t;
+
+        const dx = (this.x - predictedLocation.x) * inertiaFactor; 
+        const dy = (this.y - predictedLocation.y)* inertiaFactor;
+
+        this.dashTarget = { x: predictedLocation.x - dx, y: predictedLocation.y - dy };
     }
 
     draw(ctx) {

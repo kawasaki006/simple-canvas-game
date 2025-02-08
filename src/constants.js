@@ -63,6 +63,6 @@ export const SECOND_STAGE = {
     DEATH_DELAY: 1000, // Delay before win screen after killing true objective
     HITS_TO_KILL: 2, // Number of hits needed to kill true objective
     TARGETING_DURATION: 1000, // How long objective spends targeting
-    RESTING_DURATION: 2000, // How long objective rests between attacks
+    RESTING_DURATION: 1000, // How long objective rests between attacks
     DASH_SPEED: 600, // Pixels per second
 }; 

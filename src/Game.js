@@ -22,18 +22,19 @@ export class Game {
         this.bulletPool = new BulletPool(BULLET.PLAYER.POOL_SIZE);
         
         // Initialize both stage managers
-        this.secondStageManager = null;
+        this.secondStageManager = new SecondStageManager();
         this.firstStageObjective = new FirstStageObjective();
         
         this.firstStageObjective.spawn(this.canvas.width, this.canvas.height);
-        
+        this.secondStageManager.initialize();
+
         this.keys = {};
         this.mouseX = 0;
         this.mouseY = 0;
         this.lastTime = 0;
         this.mouseDown = false;
 
-        this.gameState = GameState.FIRST_STAGE;
+        this.gameState = GameState.SECOND_STAGE;
         this.stateTransitionTime = 0;
 
         this.setupEventListeners();
