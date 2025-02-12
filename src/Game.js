@@ -262,10 +262,14 @@ export class Game {
 
     restart() {
         // For testing purposes, start directly in second stage
-        this.gameState = GameState.SECOND_STAGE;
-        this.secondStageManager = new SecondStageManager();
-        this.secondStageManager.initialize();
-        this.firstStageObjective = null;
+        //this.gameState = GameState.SECOND_STAGE;
+        //this.secondStageManager = new SecondStageManager();
+        //this.secondStageManager.initialize();
+        this.gameState = GameState.FIRST_STAGE;
+        this.firstStageObjective = new FirstStageObjective();
+        this.firstStageObjective.spawn(this.canvas.width, this.canvas.height);
+
+        //this.firstStageObjective = null;
         this.player.alive = true;
         this.bulletPool.bullets.forEach(bullet => bullet.active = false);
     }
